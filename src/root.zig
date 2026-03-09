@@ -2,6 +2,7 @@
 
 const std = @import("std");
 const Allocator = std.mem.Allocator;
+const benchmark = @import("benchmark");
 
 /// Generic context for hashmap
 pub fn AutoContext(comptime K: type) type {
@@ -1549,4 +1550,226 @@ test "RobinHoodHashMap - string key large dataset" {
     while (i < 50) : (i += 1) {
         try std.testing.expect(map.contains(keys.items[@intCast(i)]));
     }
+}
+
+/////////////
+// Benchmarks
+// NOTE: These are far from definitive. They are intended
+//       as a light guide to check that I don't veer too far
+//       off the stock hashmap
+
+fn getBenchmarkMode() benchmark.Mode {
+    // zig build -Doptimize=ReleaseFast fast test
+    // NOTE: Flip this to true to run benchmarks
+    return if (false) .benchmark else .smoke;
+}
+
+test "benchmark hashmap - int key" {
+    if (getBenchmarkMode() == .smoke) return;
+
+    const allocator = std.testing.allocator;
+
+    var stderr_buffer: [1024]u8 = undefined;
+    var stderr_writer = std.fs.File.stderr().writer(&stderr_buffer);
+    const stdout = &stderr_writer.interface;
+
+    var bench = try benchmark.Benchmark().init(allocator, .{ .mode = benchmark.Mode.benchmark, .size = 2 });
+    defer bench.deinit(allocator);
+
+    {
+        var map = std.HashMap(i64, i32, std.hash_map.AutoContext(i64), 75).init(allocator);
+        defer map.deinit();
+        try map.ensureTotalCapacity(16);
+
+        try bench.start("stdlib");
+        // begin
+        for (0..10) |x| {
+            const x64: i64 = @intCast(x);
+            const x32: i32 = @intCast(x);
+            try map.put(x64, x32 + 100);
+        }
+        _ = map.remove(3);
+        try map.put(4, 400);
+        _ = map.count();
+        // end
+        _ = bench.stop();
+    }
+    {
+        var map = try RobinHoodHashMap(i64, i32, AutoContext(i64), 75).init(allocator, AutoContext(i64){});
+        defer map.deinit();
+
+        try bench.start("robinhood");
+        // begin
+        for (0..10) |x| {
+            const x64: i64 = @intCast(x);
+            const x32: i32 = @intCast(x);
+            try map.put(x64, x32 + 100);
+        }
+        _ = map.remove(3);
+        try map.put(4, 400);
+        _ = map.count();
+        // end
+        _ = bench.stop();
+    }
+    try bench.printResults(stdout, "benchmark - int key");
+
+    try stdout.flush();
+}
+
+test "benchmark hashmap - string key" {
+    if (getBenchmarkMode() == .smoke) return;
+
+    const allocator = std.testing.allocator;
+
+    var stderr_buffer: [1024]u8 = undefined;
+    var stderr_writer = std.fs.File.stderr().writer(&stderr_buffer);
+    const stdout = &stderr_writer.interface;
+
+    var bench = try benchmark.Benchmark().init(allocator, .{ .mode = benchmark.Mode.benchmark, .size = 2 });
+    defer bench.deinit(allocator);
+
+    {
+        var map = std.hash_map.StringHashMap(i32).init(allocator);
+        defer map.deinit();
+        try map.ensureTotalCapacity(16);
+
+        try bench.start("stdlib");
+        // b
+        try map.put("one", 1);
+        try map.put("two", 2);
+        try map.put("three", 3);
+        _ = map.count();
+        // e
+        _ = bench.stop();
+    }
+    {
+        var map = try RobinHoodHashMap([]const u8, i32, StringContext(), 75).init(allocator, StringContext(){});
+        defer map.deinit();
+
+        try bench.start("robinhood");
+        // b
+        try map.put("one", 1);
+        try map.put("two", 2);
+        try map.put("three", 3);
+        _ = map.count();
+        // e
+        _ = bench.stop();
+    }
+    try bench.printResults(stdout, "benchmark - string key");
+
+    try stdout.flush();
+}
+
+test "benchmark hashmap - int key - resize" {
+    if (getBenchmarkMode() == .smoke) return;
+
+    const allocator = std.testing.allocator;
+
+    var stderr_buffer: [1024]u8 = undefined;
+    var stderr_writer = std.fs.File.stderr().writer(&stderr_buffer);
+    const stdout = &stderr_writer.interface;
+
+    var bench = try benchmark.Benchmark().init(allocator, .{ .mode = benchmark.Mode.benchmark, .size = 2 });
+    defer bench.deinit(allocator);
+
+    {
+        var map = std.HashMap(i64, i32, std.hash_map.AutoContext(i64), 75).init(allocator);
+        defer map.deinit();
+        try map.ensureTotalCapacity(16);
+
+        try bench.start("stdlib");
+        // begin
+        for (0..40) |x| {
+            const x64: i64 = @intCast(x);
+            const x32: i32 = @intCast(x);
+            try map.put(x64, x32 + 100);
+        }
+        _ = map.remove(3);
+        try map.put(4, 400);
+        _ = map.count();
+        // end
+        _ = bench.stop();
+    }
+    {
+        var map = try RobinHoodHashMap(i64, i32, AutoContext(i64), 75).init(allocator, AutoContext(i64){});
+        defer map.deinit();
+
+        try bench.start("robinhood");
+        // begin
+        for (0..40) |x| {
+            const x64: i64 = @intCast(x);
+            const x32: i32 = @intCast(x);
+            try map.put(x64, x32 + 100);
+        }
+        _ = map.remove(3);
+        try map.put(4, 400);
+        _ = map.count();
+        // end
+        _ = bench.stop();
+    }
+    try bench.printResults(stdout, "benchmark - int key - resize");
+
+    try stdout.flush();
+}
+
+test "benchmark hashmap - int key - remove" {
+    if (getBenchmarkMode() == .smoke) return;
+
+    const allocator = std.testing.allocator;
+
+    var stderr_buffer: [1024]u8 = undefined;
+    var stderr_writer = std.fs.File.stderr().writer(&stderr_buffer);
+    const stdout = &stderr_writer.interface;
+
+    var bench = try benchmark.Benchmark().init(allocator, .{ .mode = benchmark.Mode.benchmark, .size = 2 });
+    defer bench.deinit(allocator);
+
+    {
+        var map = std.HashMap(i64, i32, std.hash_map.AutoContext(i64), 75).init(allocator);
+        defer map.deinit();
+        try map.ensureTotalCapacity(16);
+
+        try bench.start("stdlib");
+        // begin
+        for (0..100) |x| {
+            const x64: i64 = @intCast(x);
+            const x32: i32 = @intCast(x);
+            try map.put(x64, x32 + 100);
+        }
+        // remove every third entry
+        for (0..100) |x| {
+            if (@mod(x, 3) == 0) {
+                const x64: i64 = @intCast(x);
+                _ = map.remove(x64);
+            }
+        }
+        _ = map.count();
+        // end
+        _ = bench.stop();
+    }
+    {
+        var map = try RobinHoodHashMap(i64, i32, AutoContext(i64), 75).init(allocator, AutoContext(i64){});
+        defer map.deinit();
+
+        try bench.start("robinhood");
+        // begin
+        for (0..100) |x| {
+            const x64: i64 = @intCast(x);
+            const x32: i32 = @intCast(x);
+            try map.put(x64, x32 + 100);
+        }
+        // remove every third entry
+        for (0..100) |x| {
+            if (@mod(x, 3) == 0) {
+                const x64: i64 = @intCast(x);
+                _ = map.remove(x64);
+            }
+        }
+        _ = map.count();
+        // end
+        _ = bench.stop();
+    }
+    try bench.printResults(stdout, "benchmark - int key - remove");
+
+    try stdout.flush();
 }
