@@ -11,7 +11,7 @@ Robinhood HashMap implementation in Zig
 
 # Development
 
-Zig target version: 0.15.2
+Zig target version: 0.16.0
 
 ```
 # Build
@@ -22,6 +22,9 @@ zig build run
 
 # Test
 zig build test --summary all
+
+# Benchmarks
+zig build test -Doptimize=ReleaseFast -- benchmark
 ```
 
 # Usage

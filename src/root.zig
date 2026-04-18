@@ -352,6 +352,7 @@ pub fn RobinHoodHashMap(comptime K: type, comptime V: type, comptime Context: ty
         pub fn clearAndFree(self: *Self) !void {
             self._allocator.free(self._buckets);
 
+            // After clearing, set buckets back to default capacity
             const new_capacity = try std.math.ceilPowerOfTwo(usize, default_capacity);
             const entries = try self._allocator.alloc(BucketEntry, new_capacity);
             @memset(entries, .{
@@ -361,6 +362,7 @@ pub fn RobinHoodHashMap(comptime K: type, comptime V: type, comptime Context: ty
                 .occupied = false,
             });
 
+            self._buckets = entries;
             self._bucket_count = 0;
         }
 
@@ -1558,22 +1560,21 @@ test "RobinHoodHashMap - string key large dataset" {
 //       as a light guide to check that I don't veer too far
 //       off the stock hashmap
 
-fn getBenchmarkMode() benchmark.Mode {
-    // zig build -Doptimize=ReleaseFast fast test
-    // NOTE: Flip this to true to run benchmarks
-    return if (false) .benchmark else .smoke;
-}
-
 test "benchmark hashmap - int key" {
-    if (getBenchmarkMode() == .smoke) return;
+    const report_file = "_benchmark/benchmark_hashmap_int_key";
+    if (benchmark.getMode() != .benchmark) return;
 
+    const io = std.testing.io;
     const allocator = std.testing.allocator;
+    var buffer: [1024]u8 = undefined;
 
-    var stderr_buffer: [1024]u8 = undefined;
-    var stderr_writer = std.fs.File.stderr().writer(&stderr_buffer);
-    const stdout = &stderr_writer.interface;
+    var report = try benchmark.ReportWriter.init(io, report_file, &buffer);
+    defer report.deinit(io);
 
-    var bench = try benchmark.Benchmark().init(allocator, .{ .mode = benchmark.Mode.benchmark, .size = 2 });
+    var bench = try benchmark.Benchmark().init(io, allocator, .{
+        .mode = benchmark.Mode.benchmark,
+        .size = 2,
+    });
     defer bench.deinit(allocator);
 
     {
@@ -1581,7 +1582,7 @@ test "benchmark hashmap - int key" {
         defer map.deinit();
         try map.ensureTotalCapacity(16);
 
-        try bench.start("stdlib");
+        try bench.start(io, "stdlib");
         // begin
         for (0..10) |x| {
             const x64: i64 = @intCast(x);
@@ -1592,13 +1593,13 @@ test "benchmark hashmap - int key" {
         try map.put(4, 400);
         _ = map.count();
         // end
-        _ = bench.stop();
+        _ = bench.stop(io);
     }
     {
         var map = try RobinHoodHashMap(i64, i32, AutoContext(i64), 75).init(allocator, AutoContext(i64){});
         defer map.deinit();
 
-        try bench.start("robinhood");
+        try bench.start(io, "robinhood");
         // begin
         for (0..10) |x| {
             const x64: i64 = @intCast(x);
@@ -1609,23 +1610,28 @@ test "benchmark hashmap - int key" {
         try map.put(4, 400);
         _ = map.count();
         // end
-        _ = bench.stop();
+        _ = bench.stop(io);
     }
-    try bench.printResults(stdout, "benchmark - int key");
+    try bench.printResults(report.writer(), "benchmark - int key");
 
-    try stdout.flush();
+    try report.writer().flush();
 }
 
 test "benchmark hashmap - string key" {
-    if (getBenchmarkMode() == .smoke) return;
+    const report_file = "_benchmark/benchmark_hashmap_string_key";
+    if (benchmark.getMode() != .benchmark) return;
 
+    const io = std.testing.io;
     const allocator = std.testing.allocator;
+    var buffer: [1024]u8 = undefined;
 
-    var stderr_buffer: [1024]u8 = undefined;
-    var stderr_writer = std.fs.File.stderr().writer(&stderr_buffer);
-    const stdout = &stderr_writer.interface;
+    var report = try benchmark.ReportWriter.init(io, report_file, &buffer);
+    defer report.deinit(io);
 
-    var bench = try benchmark.Benchmark().init(allocator, .{ .mode = benchmark.Mode.benchmark, .size = 2 });
+    var bench = try benchmark.Benchmark().init(io, allocator, .{
+        .mode = benchmark.Mode.benchmark,
+        .size = 2,
+    });
     defer bench.deinit(allocator);
 
     {
@@ -1633,43 +1639,48 @@ test "benchmark hashmap - string key" {
         defer map.deinit();
         try map.ensureTotalCapacity(16);
 
-        try bench.start("stdlib");
+        try bench.start(io, "stdlib");
         // b
         try map.put("one", 1);
         try map.put("two", 2);
         try map.put("three", 3);
         _ = map.count();
         // e
-        _ = bench.stop();
+        _ = bench.stop(io);
     }
     {
         var map = try RobinHoodHashMap([]const u8, i32, StringContext(), 75).init(allocator, StringContext(){});
         defer map.deinit();
 
-        try bench.start("robinhood");
+        try bench.start(io, "robinhood");
         // b
         try map.put("one", 1);
         try map.put("two", 2);
         try map.put("three", 3);
         _ = map.count();
         // e
-        _ = bench.stop();
+        _ = bench.stop(io);
     }
-    try bench.printResults(stdout, "benchmark - string key");
+    try bench.printResults(report.writer(), "benchmark - string key");
 
-    try stdout.flush();
+    try report.writer().flush();
 }
 
 test "benchmark hashmap - int key - resize" {
-    if (getBenchmarkMode() == .smoke) return;
+    const report_file = "_benchmark/benchmark_hashmap_int_key_resize";
+    if (benchmark.getMode() != .benchmark) return;
 
+    const io = std.testing.io;
     const allocator = std.testing.allocator;
+    var buffer: [1024]u8 = undefined;
 
-    var stderr_buffer: [1024]u8 = undefined;
-    var stderr_writer = std.fs.File.stderr().writer(&stderr_buffer);
-    const stdout = &stderr_writer.interface;
+    var report = try benchmark.ReportWriter.init(io, report_file, &buffer);
+    defer report.deinit(io);
 
-    var bench = try benchmark.Benchmark().init(allocator, .{ .mode = benchmark.Mode.benchmark, .size = 2 });
+    var bench = try benchmark.Benchmark().init(io, allocator, .{
+        .mode = benchmark.Mode.benchmark,
+        .size = 2,
+    });
     defer bench.deinit(allocator);
 
     {
@@ -1677,7 +1688,7 @@ test "benchmark hashmap - int key - resize" {
         defer map.deinit();
         try map.ensureTotalCapacity(16);
 
-        try bench.start("stdlib");
+        try bench.start(io, "stdlib");
         // begin
         for (0..40) |x| {
             const x64: i64 = @intCast(x);
@@ -1688,13 +1699,13 @@ test "benchmark hashmap - int key - resize" {
         try map.put(4, 400);
         _ = map.count();
         // end
-        _ = bench.stop();
+        _ = bench.stop(io);
     }
     {
         var map = try RobinHoodHashMap(i64, i32, AutoContext(i64), 75).init(allocator, AutoContext(i64){});
         defer map.deinit();
 
-        try bench.start("robinhood");
+        try bench.start(io, "robinhood");
         // begin
         for (0..40) |x| {
             const x64: i64 = @intCast(x);
@@ -1705,23 +1716,28 @@ test "benchmark hashmap - int key - resize" {
         try map.put(4, 400);
         _ = map.count();
         // end
-        _ = bench.stop();
+        _ = bench.stop(io);
     }
-    try bench.printResults(stdout, "benchmark - int key - resize");
+    try bench.printResults(report.writer(), "benchmark - int key - resize");
 
-    try stdout.flush();
+    try report.writer().flush();
 }
 
 test "benchmark hashmap - int key - remove" {
-    if (getBenchmarkMode() == .smoke) return;
+    const report_file = "_benchmark/benchmark_hashmap_int_key_remove";
+    if (benchmark.getMode() != .benchmark) return;
 
+    const io = std.testing.io;
     const allocator = std.testing.allocator;
+    var buffer: [1024]u8 = undefined;
 
-    var stderr_buffer: [1024]u8 = undefined;
-    var stderr_writer = std.fs.File.stderr().writer(&stderr_buffer);
-    const stdout = &stderr_writer.interface;
+    var report = try benchmark.ReportWriter.init(io, report_file, &buffer);
+    defer report.deinit(io);
 
-    var bench = try benchmark.Benchmark().init(allocator, .{ .mode = benchmark.Mode.benchmark, .size = 2 });
+    var bench = try benchmark.Benchmark().init(io, allocator, .{
+        .mode = benchmark.Mode.benchmark,
+        .size = 2,
+    });
     defer bench.deinit(allocator);
 
     {
@@ -1729,7 +1745,7 @@ test "benchmark hashmap - int key - remove" {
         defer map.deinit();
         try map.ensureTotalCapacity(16);
 
-        try bench.start("stdlib");
+        try bench.start(io, "stdlib");
         // begin
         for (0..100) |x| {
             const x64: i64 = @intCast(x);
@@ -1745,13 +1761,13 @@ test "benchmark hashmap - int key - remove" {
         }
         _ = map.count();
         // end
-        _ = bench.stop();
+        _ = bench.stop(io);
     }
     {
         var map = try RobinHoodHashMap(i64, i32, AutoContext(i64), 75).init(allocator, AutoContext(i64){});
         defer map.deinit();
 
-        try bench.start("robinhood");
+        try bench.start(io, "robinhood");
         // begin
         for (0..100) |x| {
             const x64: i64 = @intCast(x);
@@ -1767,9 +1783,9 @@ test "benchmark hashmap - int key - remove" {
         }
         _ = map.count();
         // end
-        _ = bench.stop();
+        _ = bench.stop(io);
     }
-    try bench.printResults(stdout, "benchmark - int key - remove");
+    try bench.printResults(report.writer(), "benchmark - int key - remove");
 
-    try stdout.flush();
+    try report.writer().flush();
 }

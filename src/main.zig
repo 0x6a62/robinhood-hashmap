@@ -8,10 +8,8 @@ const RobinHoodHashMap = rbhm.RobinHoodHashMap;
 const AutoContext = rbhm.AutoContext;
 const StringContext = rbhm.StringContext;
 
-pub fn main() !void {
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer arena.deinit();
-    const allocator = arena.allocator();
+pub fn main(init: std.process.Init) !void {
+    const allocator = init.arena.allocator();
 
     // numeric key
     {

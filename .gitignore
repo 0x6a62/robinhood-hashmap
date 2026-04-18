@@ -18,6 +18,7 @@ a.out
 
 # zig
 .zig-cache/
+zig-pkg/
 
 # editors
 .vscode

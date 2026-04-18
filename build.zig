@@ -21,6 +21,13 @@ pub fn build(b: *std.Build) void {
     // target and optimize options) will be listed when running `zig build --help`
     // in this directory.
 
+    // Benchmark supports running in two modes.
+    // Only run benchmarks:
+    // zig build test -Doptimize=ReleaseFast -- benchmark
+    const benchmark_arg = for (b.args orelse &.{}) |arg| {
+        if (std.mem.indexOf(u8, arg, "benchmark") != null) break true;
+    } else false;
+
     // This creates a module, which represents a collection of source files alongside
     // some compilation options, such as optimization mode and linked system libraries.
     // Zig modules are the preferred way of making Zig code available to consumers.
@@ -44,6 +51,7 @@ pub fn build(b: *std.Build) void {
     const benchmark = b.dependency("benchmark", .{
         .target = target,
         .optimize = optimize,
+        .benchmark_arg = benchmark_arg,
     });
 
     mod.addImport("benchmark", benchmark.module("benchmark"));
@@ -127,6 +135,7 @@ pub fn build(b: *std.Build) void {
     // set the releative field.
     const mod_tests = b.addTest(.{
         .root_module = mod,
+        .filters = b.args orelse &.{}, // <- filter test with ` -- foo`
     });
 
     // A run step that will run the test executable.
@@ -137,6 +146,7 @@ pub fn build(b: *std.Build) void {
     // hence why we have to create two separate ones.
     const exe_tests = b.addTest(.{
         .root_module = exe.root_module,
+        .filters = b.args orelse &.{}, // <- filter test with ` -- foo`
     });
 
     // A run step that will run the second test executable.
