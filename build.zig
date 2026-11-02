@@ -24,9 +24,11 @@ pub fn build(b: *std.Build) void {
     // Benchmark supports running in two modes.
     // Only run benchmarks:
     // zig build test -Doptimize=ReleaseFast -- benchmark
-    const benchmark_arg = for (b.args orelse &.{}) |arg| {
-        if (std.mem.indexOf(u8, arg, "benchmark") != null) break true;
-    } else false;
+    // NOTE: 0.17.0 broke this, have to set manually for now
+    const benchmark_arg = true;
+    // const benchmark_arg = for (b.args orelse &.{}) |arg| {
+    //     if (std.mem.indexOf(u8, arg, "benchmark") != null) break true;
+    // } else false;
 
     // This creates a module, which represents a collection of source files alongside
     // some compilation options, such as optimization mode and linked system libraries.
@@ -126,16 +128,15 @@ pub fn build(b: *std.Build) void {
 
     // This allows the user to pass arguments to the application in the build
     // command itself, like this: `zig build run -- arg1 arg2 etc`
-    if (b.args) |args| {
-        run_cmd.addArgs(args);
-    }
+    run_cmd.addPassthruArgs();
 
     // Creates an executable that will run `test` blocks from the provided module.
     // Here `mod` needs to define a target, which is why earlier we made sure to
     // set the releative field.
+    // NOTE: 0.17.0 broken this
     const mod_tests = b.addTest(.{
         .root_module = mod,
-        .filters = b.args orelse &.{}, // <- filter test with ` -- foo`
+        // .filters = b.args orelse &.{}, // <- filter test with ` -- foo`
     });
 
     // A run step that will run the test executable.
@@ -146,7 +147,7 @@ pub fn build(b: *std.Build) void {
     // hence why we have to create two separate ones.
     const exe_tests = b.addTest(.{
         .root_module = exe.root_module,
-        .filters = b.args orelse &.{}, // <- filter test with ` -- foo`
+        // .filters = b.args orelse &.{}, // <- filter test with ` -- foo`
     });
 
     // A run step that will run the second test executable.
